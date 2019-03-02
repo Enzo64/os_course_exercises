@@ -17,13 +17,23 @@
 ## 思考题
 
 - 你理解的对于类似ucore这样需要进程/虚存/文件系统的操作系统，在硬件设计上至少需要有哪些直接的支持？至少应该提供哪些功能的特权指令？
-
-- 你理解的x86的实模式和保护模式有什么区别？物理地址、线性地址、逻辑地址的含义分别是什么？
-
-- 你理解的risc-v的特权模式有什么区别？不同 模式在地址访问方面有何特征？
-
+  - **进程切换需要硬件支持时钟中断，进一步需要Count和Compare寄存器的协作；**
+  - **虚存需要用到地址映射，硬件需要提供MMU；**
+  - **文件系统需要硬件提供稳定的存储介质。**
+- 你理解的x86的实模式和保护模式有什么区别？
+  - **实模式：不进行地址转换，地址之间一视同仁，可能会出现危险的情况；**
+  - **保护模式：进行地址转换，通过虚拟地址来对系统程序进行保护。**
+- 物理地址、线性地址、逻辑地址的含义分别是什么？
+  - **逻辑地址：程序员所关心的地址。由程序产生、和段相关的偏移地址。它是相对于当前进程数据段的地址。**
+  - **线性地址：逻辑地址变换到物理地址的中间层地址。逻辑地址+段的基地址=线性地址。**
+  - **物理地址：变换的最终结果，在总线上的寻址信号。**
+- 你理解的risc-v的特权模式有什么区别？不同模式在地址访问方面有何特征？
+  - **M-mode：最高权限。不受权限地访问整个机器；**
+  - **U-mode：用户态，权限最低。对系统的其他部分进行保护，防止其被用户程序破坏；**
+  - **S-mode：管理员权限。比U-mode权限高，可以对操作系统进行操作；**
+  - **H-mode：Hypervisor，比U-mode权限高，为了支持虚拟机监视器。**
+  - **低权限在访问高权限资源时，可能只能只读，或是会被忽略。**
 - 理解ucore中list_entry双向链表数据结构及其4个基本操作函数和ucore中一些基于它的代码实现（此题不用填写内容）
-
 - 对于如下的代码段，请说明":"后面的数字是什么含义
 ```
  /* Gate descriptors for interrupts and traps */
@@ -39,6 +49,8 @@
     unsigned gd_off_31_16 : 16;        // high bits of offset in segment
  };
 ```
+
+-  **‘:’后的数字代表的是每一个‘变量’在结构体中所占的位数，例如，gd_off_15_0占了gatedesc结构的前16位，而gd_ss占了随后的16位…，而gd_off_31_16占了最后的16位。**
 
 - 对于如下的代码段，
 
@@ -63,17 +75,88 @@ SETGATE(intr, 1,2,3,0);
 ```
 请问执行上述指令后， intr的值是多少？
 
+- **intr是一个64位的数（从gatedesc位数总和可知），其十六进制表示为0x00020003。**
+
 ### 课堂实践练习
 
 #### 练习一
 
 1. 请在ucore中找一段你认为难度适当的AT&T格式X86汇编代码，尝试解释其含义。
 
+   ```assembly
+   .text
+   .globl switch_to
+   switch_to:                      # switch_to(from, to)
+   
+       # save from's registers 将寄存器的值保存入栈
+       movl 4(%esp), %eax          # eax points to from 将栈顶的位置保存在寄存器eax中，预留空间保存各个寄存器的值
+       popl 0(%eax)                # save eip !popl 将eip寄存器即将读的地址放到指定位置
+       movl %esp, 4(%eax)			# 顺序将各个寄存器的值保存入栈
+       movl %ebx, 8(%eax)
+       movl %ecx, 12(%eax)
+       movl %edx, 16(%eax)
+       movl %esi, 20(%eax)
+       movl %edi, 24(%eax)
+       movl %ebp, 28(%eax)
+   
+       # restore to's registers 将栈中的值恢复到寄存器中
+       movl 4(%esp), %eax          # not 8(%esp): popped return address already 将栈顶寄存器的值恢复到eax寄存中
+                                   # eax now points to to
+       movl 28(%eax), %ebp			# 顺序恢复各个寄存器的值
+       movl 24(%eax), %edi
+       movl 20(%eax), %esi
+       movl 16(%eax), %edx
+       movl 12(%eax), %ecx
+       movl 8(%eax), %ebx
+       movl 4(%eax), %esp
+   
+       pushl 0(%eax)               # push eip 将eip寄存器入栈
+   
+       ret							# 返回
+   ```
+
 2. (option)请在rcore中找一段你认为难度适当的RV汇编代码，尝试解释其含义。
 
 #### 练习二
 
 宏定义和引用在内核代码中很常用。请枚举ucore或rcore中宏定义的用途，并举例描述其含义。
+
+```c
+// 第一个宏定义了执行path下的名为name的进程，后面是其所带的参数
+#define __KERNEL_EXECVE(name, path, ...) ({                         \
+const char *argv[] = {path, ##__VA_ARGS__, NULL};       \
+                     cprintf("kernel_execve: pid = %d, name = \"%s\".\n",    \
+                             current->pid, name);                            \
+                     kernel_execve(name, argv);                              \
+})
+
+// 而接下来四个宏则是对第一个宏的调用，分别是规定了在不同的情况下，应该如何传入path和name等参数
+
+#define KERNEL_EXECVE(x, ...)                   __KERNEL_EXECVE(#x, #x, ##__VA_ARGS__)
+
+#define KERNEL_EXECVE2(x, ...)                  KERNEL_EXECVE(x, ##__VA_ARGS__)
+
+#define __KERNEL_EXECVE3(x, s, ...)             KERNEL_EXECVE(x, #s, ##__VA_ARGS__)
+
+#define KERNEL_EXECVE3(x, s, ...)               __KERNEL_EXECVE3(x, s, ##__VA_ARGS__)
+
+
+// user_main - kernel thread used to exec a user program
+// 这个是用户的主进程，可以看到，在不同的宏定义的情况下，TEST，TESTSCRIPT是否开启的情况下，调用的是三类不同的执行宏，而最终会回到__KERNEL_EXECVE这个宏上。这样做有便于调试、而且在增删时易于调错。
+static int
+user_main(void *arg) {
+#ifdef TEST
+#ifdef TESTSCRIPT
+    KERNEL_EXECVE3(TEST, TESTSCRIPT);
+#else
+    KERNEL_EXECVE2(TEST);
+#endif
+#else
+    KERNEL_EXECVE(sh);
+#endif
+    panic("user_main execve failed.\n");
+}
+```
 
 #### reference
  - [Intel格式和AT&T格式汇编区别](http://www.cnblogs.com/hdk1993/p/4820353.html)

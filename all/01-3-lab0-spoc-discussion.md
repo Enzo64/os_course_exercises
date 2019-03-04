@@ -17,10 +17,11 @@
 ## 思考题
 
 - 你理解的对于类似ucore这样需要进程/虚存/文件系统的操作系统，在硬件设计上至少需要有哪些直接的支持？至少应该提供哪些功能的特权指令？
+
   - **进程切换需要硬件支持时钟中断，进一步需要Count和Compare寄存器的协作；**
   - **虚存需要用到地址映射，硬件需要提供MMU；**
   - **文件系统需要硬件提供稳定的存储介质。**
-- 你理解的x86的实模式和保护模式有什么区别？
+- 你理解的x86的实模式和保护模式有什么区别？你认为从实模式切换到保护模式需要注意那些方面？
   - **实模式：不进行地址转换，地址之间一视同仁，可能会出现危险的情况；**
   - **保护模式：进行地址转换，通过虚拟地址来对系统程序进行保护。**
 - 物理地址、线性地址、逻辑地址的含义分别是什么？
@@ -33,6 +34,7 @@
   - **S-mode：管理员权限。比U-mode权限高，可以对操作系统进行操作；**
   - **H-mode：Hypervisor，比U-mode权限高，为了支持虚拟机监视器。**
   - **低权限在访问高权限资源时，可能只能只读，或是会被忽略。**
+
 - 理解ucore中list_entry双向链表数据结构及其4个基本操作函数和ucore中一些基于它的代码实现（此题不用填写内容）
 - 对于如下的代码段，请说明":"后面的数字是什么含义
 ```
@@ -159,8 +161,12 @@ user_main(void *arg) {
 ```
 
 #### reference
+>>>>>>> 
  - [Intel格式和AT&T格式汇编区别](http://www.cnblogs.com/hdk1993/p/4820353.html)
  - [x86汇编指令集  ](http://hiyyp1234.blog.163.com/blog/static/67786373200981811422948/)
  - [PC Assembly Language, Paul A. Carter, November 2003.](https://pdos.csail.mit.edu/6.828/2016/readings/pcasm-book.pdf)
  - [*Intel 80386 Programmer's Reference Manual*, 1987](https://pdos.csail.mit.edu/6.828/2016/readings/i386/toc.htm)
  - [IA-32 Intel Architecture Software Developer's Manuals](http://www.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html)
+ - [v9 cpu architecture](https://github.com/chyyuu/os_tutorial_lab/blob/master/v9_computer/docs/v9_computer.md)
+ - [RISC-V cpu architecture](http://www.riscvbook.com/chinese/)
+ - [OS相关经典论文](https://github.com/chyyuu/aos_course_info/blob/master/readinglist.md)
